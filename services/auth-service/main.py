@@ -1,15 +1,16 @@
 import os
 import time
-from fastapi import FastAPI, Depends, HTTPException, status, Request, Body
+from fastapi import FastAPI, Depends, HTTPException, status, Request, Body, Header
 from fastapi.security import OAuth2PasswordRequestForm
 from pydantic import BaseModel
 from passlib.context import CryptContext
 from sqlalchemy import create_engine, Column, Integer, String
 from sqlalchemy.orm import sessionmaker, declarative_base, Session
 from sqlalchemy.exc import OperationalError
-import jwt
+from jose import JWTError, jwt
 import redis
 from dotenv import load_dotenv
+
 
 #region ENV
 load_dotenv()
@@ -109,15 +110,44 @@ def register(
 
 
 @app.post("/login")
-def login(
-    user: UserCreate = Body(...),
-    request: Request = None,
-    db: Session = Depends(get_db)
-):
+def login(user: UserCreate = Body(...), request: Request = None, db: Session = Depends(get_db)):
     rate_limiter(request.client.host)
     db_user = db.query(User).filter(User.username == user.username).first()
     if not db_user or not verify_password(user.password, db_user.password_hash):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
-    token = create_access_token({"sub": db_user.username})
+    
+    # Зберігаємо id користувача як рядок у токені
+    token = create_access_token({"sub": str(db_user.id)})
     return {"access_token": token, "token_type": "bearer"}
+
+
+
+@app.get("/verify-token")
+def verify_token(authorization: str = Header(None), db: Session = Depends(get_db)):
+    """
+    Перевіряє валідність токену і повертає дані користувача.
+    """
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Missing or invalid Authorization header")
+
+    token = authorization.split(" ")[1]
+
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        user_id_str: str = payload.get("sub")
+        if user_id_str is None:
+            raise HTTPException(status_code=401, detail="Invalid token payload")
+        user_id = int(user_id_str)
+    except JWTError:
+        raise HTTPException(status_code=401, detail="Invalid or expired token")
+
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    return {
+        "id": user.id,
+        "username": user.username,
+    }
+
 
