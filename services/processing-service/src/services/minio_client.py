@@ -13,11 +13,5 @@ minio_client = Minio(
     MINIO_ENDPOINT,
     access_key=MINIO_ROOT_USER,
     secret_key=MINIO_ROOT_PASSWORD,
-    secure=False 
+    secure=False
 )
-
-if not minio_client.bucket_exists(MINIO_BUCKET):
-    minio_client.make_bucket(MINIO_BUCKET)
-    print(f"Bucket '{MINIO_BUCKET}' створено")
-else:
-    print(f"Bucket '{MINIO_BUCKET}' вже існує")

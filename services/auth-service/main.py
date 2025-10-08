@@ -115,8 +115,7 @@ def login(user: UserCreate = Body(...), request: Request = None, db: Session = D
     db_user = db.query(User).filter(User.username == user.username).first()
     if not db_user or not verify_password(user.password, db_user.password_hash):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
-    
-    # Зберігаємо id користувача як рядок у токені
+
     token = create_access_token({"sub": str(db_user.id)})
     return {"access_token": token, "token_type": "bearer"}
 

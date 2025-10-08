@@ -19,13 +19,9 @@ async def init_minio():
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Старт сервісу
-    # await init_db()
     await init_minio()
-    yield  # ⬅️ тут FastAPI працює
-    # Завершення сервісу
-    # await close_minio()
-    # await close_db()
+    yield
+
 
 app = FastAPI(title="Files Service")
 
